@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Boatmate Warranty Intake — wrangler.toml
+# Purpose: Configure Cloudflare Workers + Durable Object for sequential Claim #
+# This file is read by `wrangler deploy`.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# The Worker service name (appears in dash + workers.dev subdomain).
+name = "boatmate-warranty-intake"
+
+# Entry file for your Worker (module syntax).
+main = "warranty-form-handler.js"
+
+# Cloudflare runtime compatibility snapshot (pick a recent date).
+compatibility_date = "2024-11-01"
+
+# Expose a workers.dev URL (e.g., https://<name>.<acct>.workers.dev) for testing.
+# Set to false if you only want custom domain routes.
+workers_dev = true
+
+# Optional: silence Wrangler's "Preview URLs" warning.
+#   - true  → always enable preview URLs
+#   - false → always disable preview URLs
+# If omitted, Wrangler enables preview URLs when workers_dev = true.
+# preview_urls = false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Durable Object binding
+# - Makes the DO instance available inside your Worker as env.CLAIM_COUNTER.
+# - `class_name` must match the exported class name in your JS file.
+# ─────────────────────────────────────────────────────────────────────────────
+[[durable_objects.bindings]]
+name = "CLAIM_COUNTER"
+class_name = "ClaimCounter"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Migrations (required to register the Durable Object class)
+# - On Free plan, DOs are SQLite-backed and MUST use `new_sqlite_classes`.
+# - The `tag` is an arbitrary version label you bump when adding/removing classes.
+# - Run `wrangler deploy` after editing migrations.
+# ─────────────────────────────────────────────────────────────────────────────
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ClaimCounter"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# (Optional) Routes for your custom domain
+# - Uncomment to attach this Worker to real URLs (requires zone in Cloudflare).
+# - If you enable routes, you can keep workers_dev=true for testing or set it to false.
+# ─────────────────────────────────────────────────────────────────────────────
+# routes = [
+#   { pattern = "boatmateparts.com/warranty-intake", zone_name = "boatmateparts.com" },
+#   { pattern = "www.boatmateparts.com/warranty-intake", zone_name = "boatmateparts.com" }
+# ]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# (Optional) Environments
+# - You can define [env.staging], [env.prod] with different routes or bindings.
+# - Keep secrets/variables in the dashboard or use `wrangler secret put`.
+# ─────────────────────────────────────────────────────────────────────────────
+# [env.staging]
+# workers_dev = true
+# routes = [
+#   { pattern = "staging.boatmateparts.com/warranty-intake", zone_name = "boatmateparts.com" }
+# ]
