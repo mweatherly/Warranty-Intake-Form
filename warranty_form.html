@@ -22,10 +22,12 @@
           - All Dealer fields are required.
           - All Customer fields are optional.
           - “Original owner?” fieldset is hidden and cleared.
+          - Labor Rate / Labor Hours are visible and required.
       • If Trailer Owner:
           - All Customer fields are required.
           - All Dealer fields are optional.
           - “Original owner?” fieldset is shown and required.
+          - Labor Rate / Labor Hours are hidden and optional.
   - VIN is normalized to uppercase and validated against 17-char VIN pattern (no I/O/Q).
   - Honeypot (`website` field) silently accepts bots without creating a real submission.
 
@@ -284,6 +286,32 @@
         </div>
       </fieldset>
 
+      <!-- Original Owner? (conditional) -->
+      <fieldset id="original-owner-fieldset" style="display:none;">
+        <legend>Are you the original owner of this trailer?</legend>
+        <div class="radio-group">
+          <label class="radio-option" for="original_owner_yes">
+            <input
+              type="radio"
+              id="original_owner_yes"
+              name="original_owner"
+              value="yes"
+            />
+            Yes
+          </label>
+
+          <label class="radio-option" for="original_owner_no">
+            <input
+              type="radio"
+              id="original_owner_no"
+              name="original_owner"
+              value="no"
+            />
+            No
+          </label>
+        </div>
+      </fieldset>
+
       <!-- 1) Dealer Information -->
       <fieldset>
         <legend>Dealer Information</legend>
@@ -505,32 +533,6 @@
         </div>
       </fieldset>
 
-      <!-- Original Owner? (conditional) -->
-      <fieldset id="original-owner-fieldset" style="display:none;">
-        <legend>Are you the original owner of this trailer?</legend>
-        <div class="radio-group">
-          <label class="radio-option" for="original_owner_yes">
-            <input
-              type="radio"
-              id="original_owner_yes"
-              name="original_owner"
-              value="yes"
-            />
-            Yes
-          </label>
-
-          <label class="radio-option" for="original_owner_no">
-            <input
-              type="radio"
-              id="original_owner_no"
-              name="original_owner"
-              value="no"
-            />
-            No
-          </label>
-        </div>
-      </fieldset>
-
       <!-- 3) Warranty Claim Information -->
       <fieldset>
         <legend>Warranty Claim Information</legend>
@@ -592,7 +594,7 @@
             ></textarea>
           </div>
 
-          <div class="field">
+          <div class="field labor-field">
             <label for="labor_rate">Warranty Labor Rate</label>
             <input
               id="labor_rate"
@@ -600,11 +602,10 @@
               type="number"
               step="0.01"
               min="0"
-              required
             />
           </div>
 
-          <div class="field">
+          <div class="field labor-field">
             <label for="labor_hours">Warranty Labor Hours</label>
             <input
               id="labor_hours"
@@ -612,7 +613,6 @@
               type="number"
               step="0.1"
               min="0"
-              required
             />
           </div>
 
@@ -646,12 +646,23 @@
 
   <script>
     (function () {
+      // --------------------------
+      // Global element references
+      // --------------------------
       const form = document.getElementById('warranty-intake-form');
+      if (!form) return;
+
       const statusEl = document.getElementById('form-status');
       const vinInput = document.getElementById('vin');
       const categoryInput = document.getElementById('category');
       const honeypot = document.getElementById('website');
 
+      // "Who is submitting this claim?"
+      const claimSubmittedByDealer   = document.getElementById('claim_submitted_by_dealer');
+      const claimSubmittedByCustomer = document.getElementById('claim_submitted_by_customer');
+      const filingRadios = form.querySelectorAll('input[name="claim_submitted_by"]');
+
+      // Dealer / Customer fields (for required toggling)
       const dealerFields = [
         'dealer_name',
         'dealer_first_name',
@@ -677,22 +688,28 @@
         'customer_email'
       ].map(id => document.getElementById(id));
 
-      const claimSubmittedByDealer = document.getElementById('claim_submitted_by_dealer');
-      const claimSubmittedByCustomer = document.getElementById('claim_submitted_by_customer');
+      // Original owner fieldset + radios
       const originalOwnerFieldset = document.getElementById('original-owner-fieldset');
       const originalOwnerInputs = [
         document.getElementById('original_owner_yes'),
         document.getElementById('original_owner_no')
       ];
 
+      // Labor fields (Dealer-only)
+      const laborFields = form.querySelectorAll('.labor-field');
+
+      // --------------------------
+      // Utility helpers
+      // --------------------------
       function setStatus(message, ok = true) {
+        if (!statusEl) return;
         statusEl.textContent = message;
         statusEl.className = ok ? 'success' : 'error';
       }
 
-      // Basic VIN format check (not a checksum).
+      // Basic VIN format check (not a checksum)
       function validateVIN(vin) {
-        const v = vin.toUpperCase().replace(/\s+/g, '');
+        const v = String(vin || '').toUpperCase().replace(/\s+/g, '');
         const re = /^[A-HJ-NPR-Z0-9]{17}$/;
         return re.test(v);
       }
@@ -710,81 +727,115 @@
 
       function clearOriginalOwnerSelection() {
         originalOwnerInputs.forEach(input => {
-          if (input) input.checked = false;
-        });
-        originalOwnerInputs.forEach(input => {
-          if (input) input.removeAttribute('required');
+          if (input) {
+            input.checked = false;
+            input.removeAttribute('required');
+          }
         });
       }
 
+      // --------------------------
+      // UI sync helpers
+      // --------------------------
+
+      // 1) Dealer vs Trailer Owner requirements + original owner visibility
       function syncClaimSubmittedByRequirements() {
-        const isDealer = claimSubmittedByDealer.checked;
-        const isCustomer = claimSubmittedByCustomer.checked;
+        const isDealer   = !!(claimSubmittedByDealer   && claimSubmittedByDealer.checked);
+        const isCustomer = !!(claimSubmittedByCustomer && claimSubmittedByCustomer.checked);
 
         if (isDealer) {
+          // Dealer is submitting: dealer fields required, customer optional, no original-owner question
           setRequired(dealerFields, true);
           setRequired(customerFields, false);
-          originalOwnerFieldset.style.display = 'none';
+          if (originalOwnerFieldset) {
+            originalOwnerFieldset.style.display = 'none';
+          }
           clearOriginalOwnerSelection();
         } else if (isCustomer) {
+          // Trailer Owner is submitting: customer fields required, dealer optional, show original-owner question
           setRequired(dealerFields, false);
           setRequired(customerFields, true);
-          originalOwnerFieldset.style.display = 'block';
+          if (originalOwnerFieldset) {
+            originalOwnerFieldset.style.display = 'block';
+          }
           originalOwnerInputs.forEach(input => {
             if (input) input.setAttribute('required', 'required');
           });
         } else {
+          // Neither selected yet
           setRequired(dealerFields, false);
           setRequired(customerFields, false);
-          originalOwnerFieldset.style.display = 'none';
+          if (originalOwnerFieldset) {
+            originalOwnerFieldset.style.display = 'none';
+          }
           clearOriginalOwnerSelection();
         }
       }
 
-      if (claimSubmittedByDealer) {
-        claimSubmittedByDealer.addEventListener('change', syncClaimSubmittedByRequirements);
-      }
-      if (claimSubmittedByCustomer) {
-        claimSubmittedByCustomer.addEventListener('change', syncClaimSubmittedByRequirements);
+      // 2) Show/hide labor fields based on "who is submitting"
+      function updateLaborVisibility() {
+        const selected = form.querySelector('input[name="claim_submitted_by"]:checked');
+        const isDealer = selected && selected.value === 'dealer';
+
+        laborFields.forEach(field => {
+          const input = field.querySelector('input');
+          if (isDealer) {
+            // Show + require for dealer
+            field.style.display = '';
+            if (input) input.required = true;
+          } else {
+            // Hide + clear + optional for trailer owner / unset
+            field.style.display = 'none';
+            if (input) {
+              input.required = false;
+              input.value = '';
+            }
+          }
+        });
       }
 
-      // Initialize on load
-      syncClaimSubmittedByRequirements();
-
-      async function submitHandler(e) {
+      // --------------------------
+      // Main submit handler
+      // --------------------------
+      async function handleSubmit(e) {
+        // If fetch isn't available, fall back to normal browser POST.
         if (!window.fetch) return;
 
         e.preventDefault();
 
-        statusEl.textContent = '';
-        statusEl.className = '';
-
+        setStatus('');
+        // Honeypot: if filled, quietly pretend success.
         if (honeypot && honeypot.value) {
           setStatus('Thanks! Your request has been received.', true);
           form.reset();
           if (categoryInput) categoryInput.value = 'Warranty';
           syncClaimSubmittedByRequirements();
+          updateLaborVisibility();
           return;
         }
 
+        // Let browser highlight built-in validation issues.
         if (!form.reportValidity()) {
           setStatus('Please correct the highlighted fields before submitting.', false);
           return;
         }
 
-        const vinRaw = vinInput.value.trim();
+        // VIN normalization + custom message.
+        const vinRaw = vinInput ? vinInput.value.trim() : '';
         const normalizedVin = vinRaw.toUpperCase().replace(/\s+/g, '');
         if (!validateVIN(normalizedVin)) {
           setStatus('Please enter a valid VIN (17 characters; letters I, O, Q are not used).', false);
-          vinInput.focus();
+          if (vinInput) vinInput.focus();
           return;
         }
-        vinInput.value = normalizedVin;
+        if (vinInput) vinInput.value = normalizedVin;
 
+        // Ensure category is still set.
         if (categoryInput && !categoryInput.value) {
           categoryInput.value = 'Warranty';
         }
 
+        // Use FormData so file uploads are included.
         const formData = new FormData(form);
 
         try {
@@ -799,7 +850,9 @@
             setStatus(data.message || 'Submitted. Check your email for confirmation.');
             form.reset();
             if (categoryInput) categoryInput.value = 'Warranty';
+            // Reset dynamic requirements/visibility after reset
             syncClaimSubmittedByRequirements();
+            updateLaborVisibility();
           } else {
             const msg = data.message || `Submission failed (${res.status}). Please try again.`;
             setStatus(msg, false);
@@ -809,7 +862,23 @@
         }
       }
 
-      form.addEventListener('submit', submitHandler);
+      // --------------------------
+      // Initial wiring & bootstrapping
+      // --------------------------
+      // Initial UI state on load
+      syncClaimSubmittedByRequirements();
+      updateLaborVisibility();
+
+      // Keep requirements + labor fields in sync with radio changes
+      filingRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+          syncClaimSubmittedByRequirements();
+          updateLaborVisibility();
+        });
+      });
+
+      // Submit handler
+      form.addEventListener('submit', handleSubmit);
     })();
   </script>
 </body>
