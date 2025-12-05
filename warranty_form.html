@@ -5,26 +5,33 @@
   <title>Warranty Intake</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root { --gap: 0.75rem; }
+    /* Use border-box everywhere so padding/borders stay inside width */
+    *, *::before, *::after {
+        box-sizing: border-box;
+    }
+
+
+    :root { --gap: 0.75rem; } 
 
     body {
-      font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      padding: 2rem;
-      background: #f7f7f7;
+        font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: #f7f7f7;
+        margin: 0;
+        padding: 0;
     }
 
     h1 {
-      margin-bottom: 1rem;
+        margin-bottom: 1rem;
     }
 
     form {
-      max-width: 720px;
-      display: grid;
-      gap: 1.5rem;
-      padding: 1.5rem;
-      border-radius: 12px;
-      background: #fff;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        width: 100%;        /* fill the wrapper */
+        display: grid;
+        gap: 1.5rem;
+        padding: 1.5rem;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
     }
 
     fieldset {
@@ -38,39 +45,75 @@
       padding: 0 0.5rem;
     }
 
+    .wrapper {
+        max-width: 800px;
+        /* max-width: 768px; */
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+
     .field-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: var(--gap);
       margin-top: 0.75rem;
+      /* Mobile-first: single column by default */
+      grid-template-columns: 1fr;
     }
 
-    /* 3 columns on wide screens */
-    .field-grid--three {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    }
+    /* Marker classes; actual column counts set at larger breakpoints */
+    .field-grid--three { }
+    .field-grid--two { }
 
-    /* 2 columns on wide screens */
-    .field-grid--two {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    }
-
-    /* Optional: make everything stack nicely on small screens */
-    @media (max-width: 640px) {
-        .field-grid--three,
-        .field-grid--two {
-        grid-template-columns: 1fr;
-        }
-    }
-
+    /* Let grid children shrink with the track */
     .field {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        min-width: 0;
     }
 
+    /* On small screens, "wide" fields just take full width */
     .field-wide {
+      grid-column: 1 / -1;
+    }
+
+    /* At tablet/desktop sizes, switch to multi-column layouts */
+    @media (min-width: 768px) {
+      /* Default grid (Dealer/Customer sections) */
+      .field-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      /* Explicit 3-col grid (top warranty row) */
+      .field-grid--three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      /* Explicit 2-col grid (other warranty rows) */
+      .field-grid--two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      /* Now "wide" fields really span two columns */
+      .field-wide {
         grid-column: span 2;
+      }
+    }
+
+    /* Tighter padding on small screens so the form doesn't feel squished */
+    @media (max-width: 600px) {
+        body {
+            /* padding: 1rem; */
+        }
+
+        form {
+            max-width: none;      /* let it fill the viewport width */
+            border-radius: 0.75rem;
+        }
+
+        fieldset {
+            padding: 0.75rem 0.9rem 1rem;
+        }
     }
 
     label {
@@ -89,6 +132,13 @@
       box-sizing: border-box;
     }
 
+    input,
+    textarea,
+    select {
+        width: 100%;        /* fill the field */
+        max-width: 100%;
+    }
+
     textarea {
       min-height: 80px;
       resize: vertical;
@@ -96,6 +146,22 @@
 
     input[type="file"] {
       padding: 0.4rem 0.5rem;
+    }
+
+    /* Radio group styling */
+    .radio-group {
+        display: flex;
+        gap: 1.5rem;          /* even horizontal spacing between options */
+        margin-top: 0.25rem;
+        align-items: center;
+    }
+
+    .radio-option {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.95rem;
+        white-space: nowrap;  /* keeps "Trailer Owner" on one line */
     }
 
     .error {
@@ -124,7 +190,7 @@
       font-weight: 600;
       background: #1f4f91;
       color: #fff;
-      justify-self: flex-start;
+      justify-self: center;
     }
 
     button[type="submit"]:hover {
@@ -133,10 +199,10 @@
   </style>
 </head>
 <body>
-
+    <div class="wrapper">
   <h1>Warranty Intake</h1>
 
-  <!-- 
+  <!--
     PRODUCTION FORM
     ---------------
     • 3 sections: Dealer, Customer, Warranty Claim.
@@ -153,58 +219,145 @@
     <!-- Hidden Category (always "Warranty") -->
     <input type="hidden" id="category" name="category" value="Warranty" />
 
+    <!-- Who is submitting this claim? -->
+    <fieldset>
+      <legend>Who is submitting this claim?</legend>
+      <div class="radio-group">
+        <label class="radio-option" for="claim_submitted_by_dealer">
+          <input
+            type="radio"
+            id="claim_submitted_by_dealer"
+            name="claim_submitted_by"
+            value="dealer"
+            required
+          />
+          Dealer
+        </label>
+
+        <label class="radio-option" for="claim_submitted_by_customer">
+          <input
+            type="radio"
+            id="claim_submitted_by_customer"
+            name="claim_submitted_by"
+            value="customer"
+          />
+          Trailer Owner
+        </label>
+      </div>
+    </fieldset>
+
     <!-- 1) Dealer Information -->
     <fieldset>
       <legend>Dealer Information</legend>
       <div class="field-grid">
         <div class="field field-wide">
           <label for="dealer_name">Dealership</label>
-          <input id="dealer_name" name="dealer_name" type="text" required />
+          <input
+            id="dealer_name"
+            name="dealer_name"
+            type="text"
+            autocomplete="organization"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="dealer_first_name">First Name</label>
-          <input id="dealer_first_name" name="dealer_first_name" type="text" required />
+          <input
+            id="dealer_first_name"
+            name="dealer_first_name"
+            type="text"
+            autocomplete="given-name"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="dealer_last_name">Last Name</label>
-          <input id="dealer_last_name" name="dealer_last_name" type="text" required />
+          <input
+            id="dealer_last_name"
+            name="dealer_last_name"
+            type="text"
+            autocomplete="family-name"
+            required
+          />
         </div>
 
         <div class="field field-wide">
           <label for="dealer_address">Address</label>
-          <input id="dealer_address" name="dealer_address" type="text" required />
+          <input
+            id="dealer_address"
+            name="dealer_address"
+            type="text"
+            autocomplete="address-line1"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="dealer_city">City</label>
-          <input id="dealer_city" name="dealer_city" type="text" required />
+          <input
+            id="dealer_city"
+            name="dealer_city"
+            type="text"
+            autocomplete="address-level2"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="dealer_region">State/Province/Region</label>
-          <input id="dealer_region" name="dealer_region" type="text" required />
+          <input
+            id="dealer_region"
+            name="dealer_region"
+            type="text"
+            autocomplete="address-level1"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="dealer_postal_code">Zip/Postal Code</label>
-          <input id="dealer_postal_code" name="dealer_postal_code" type="text" required />
+          <input
+            id="dealer_postal_code"
+            name="dealer_postal_code"
+            type="text"
+            autocomplete="postal-code"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="dealer_country">Country/Region</label>
-          <input id="dealer_country" name="dealer_country" type="text" required />
+          <input
+            id="dealer_country"
+            name="dealer_country"
+            type="text"
+            autocomplete="country"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="dealer_phone">Phone</label>
-          <input id="dealer_phone" name="dealer_phone" type="tel" required />
+          <input
+            id="dealer_phone"
+            name="dealer_phone"
+            type="tel"
+            autocomplete="tel"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="dealer_email">Email</label>
-          <input id="dealer_email" name="dealer_email" type="email" autocomplete="email" required />
+          <input
+            id="dealer_email"
+            name="dealer_email"
+            type="email"
+            autocomplete="email"
+            required
+          />
         </div>
       </div>
     </fieldset>
@@ -215,151 +368,200 @@
       <div class="field-grid">
         <div class="field">
           <label for="customer_first_name">First Name</label>
-          <input id="customer_first_name" name="customer_first_name" type="text" required />
+          <input
+            id="customer_first_name"
+            name="customer_first_name"
+            type="text"
+            autocomplete="given-name"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="customer_last_name">Last Name</label>
-          <input id="customer_last_name" name="customer_last_name" type="text" required />
+          <input
+            id="customer_last_name"
+            name="customer_last_name"
+            type="text"
+            autocomplete="family-name"
+            required
+          />
         </div>
 
         <div class="field field-wide">
           <label for="customer_address">Address</label>
-          <input id="customer_address" name="customer_address" type="text" required />
+          <input
+            id="customer_address"
+            name="customer_address"
+            type="text"
+            autocomplete="address-line1"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="customer_city">City</label>
-          <input id="customer_city" name="customer_city" type="text" required />
+          <input
+            id="customer_city"
+            name="customer_city"
+            type="text"
+            autocomplete="address-level2"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="customer_region">State/Province/Region</label>
-          <input id="customer_region" name="customer_region" type="text" required />
+          <input
+            id="customer_region"
+            name="customer_region"
+            type="text"
+            autocomplete="address-level1"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="customer_postal_code">Zip/Postal Code</label>
-          <input id="customer_postal_code" name="customer_postal_code" type="text" required />
+          <input
+            id="customer_postal_code"
+            name="customer_postal_code"
+            type="text"
+            autocomplete="postal-code"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="customer_country">Country/Region</label>
-          <input id="customer_country" name="customer_country" type="text" required />
+          <input
+            id="customer_country"
+            name="customer_country"
+            type="text"
+            autocomplete="country"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="customer_phone">Phone</label>
-          <input id="customer_phone" name="customer_phone" type="tel" required />
+          <input
+            id="customer_phone"
+            name="customer_phone"
+            type="tel"
+            autocomplete="tel"
+            required
+          />
         </div>
 
         <div class="field">
           <label for="customer_email">Email</label>
-          <input id="customer_email" name="customer_email" type="email" autocomplete="email" required />
+          <input
+            id="customer_email"
+            name="customer_email"
+            type="email"
+            autocomplete="email"
+            required
+          />
         </div>
       </div>
     </fieldset>
 
-    <!-- 3) Warranty Claim Information -->
+        <!-- 3) Warranty Claim Information -->
     <fieldset>
-        <legend>Warranty Claim Information</legend>
+      <legend>Warranty Claim Information</legend>
 
-        <!-- Row 1: 3 columns (VIN, Date, Ship To) -->
-        <div class="field-grid field-grid--three">
-            <div class="field">
-                <label for="vin">Trailer VIN</label>
-                    <input
-                        id="vin"
-                        name="vin"
-                        type="text"
-                        inputmode="latin"
-                        autocomplete="on"
-                        spellcheck="false"
-                        maxlength="17"
-                        pattern="[A-HJ-NPR-Z0-9]{17}"
-                        required/>
+      <!-- Top row: 3 columns -->
+      <div class="field-grid field-grid--three">
+        <div class="field">
+          <label for="vin">Trailer VIN</label>
+          <input
+            id="vin"
+            name="vin"
+            type="text"
+            inputmode="latin"
+            autocomplete="on"
+            spellcheck="false"
+            maxlength="17"
+            pattern="[A-HJ-NPR-Z0-9]{17}"
+            required
+          />
         </div>
 
         <div class="field">
-            <label for="date_of_occurrence">Date of Occurrence</label>
-            <input
-                id="date_of_occurrence"
-                name="date_of_occurrence"
-                type="date"
-                required/>
+          <label for="date_of_occurrence">Date of Occurrence</label>
+          <input
+            id="date_of_occurrence"
+            name="date_of_occurrence"
+            type="date"
+            required
+          />
         </div>
 
         <div class="field">
-            <label for="ship_to">Ship To</label>
-            <select id="ship_to" name="ship_to" required>
-                <option value="">Select an option</option>
-                <option value="Dealer">Dealer</option>
-                <option value="Customer">Customer</option>
-            </select>
+          <label for="ship_to">Ship To</label>
+          <select id="ship_to" name="ship_to" required>
+            <option value="">Select an option</option>
+            <option value="Dealer">Dealer</option>
+            <option value="Customer">Customer</option>
+          </select>
         </div>
-    </div>
+      </div>
 
-    <!-- Row 2: 2 columns (Symptoms, Request) -->
-    <div class="field-grid field-grid--two">
+      <!-- Remaining fields: 2-column grid -->
+      <div class="field-grid field-grid--two">
         <div class="field">
-            <label for="warranty_symptoms">Warranty Symptoms</label>
-            <textarea
-                id="warranty_symptoms"
-                name="warranty_symptoms"
-                required>
-            </textarea>
+          <label for="warranty_symptoms">Warranty Symptoms</label>
+          <textarea
+            id="warranty_symptoms"
+            name="warranty_symptoms"
+            required
+          ></textarea>
         </div>
 
         <div class="field">
-            <label for="warranty_request">Warranty Request</label>
-            <textarea
-                id="warranty_request"
-                name="warranty_request"
-                required>
-            </textarea>
+          <label for="warranty_request">Warranty Request</label>
+          <textarea
+            id="warranty_request"
+            name="warranty_request"
+            required
+          ></textarea>
         </div>
-    </div>
 
-    <!-- Row 3: 3 columns (Labor Rate, Labor Hours, Attachments) -->
-    <div class="field-grid field-grid--three">
         <div class="field">
-            <label for="labor_rate">Warranty Labor Rate</label>
-            <input
-                id="labor_rate"
-                name="labor_rate"
-                type="number"
-                step="0.01"
-                min="0"/>
-        </div> 
+          <label for="labor_rate">Warranty Labor Rate</label>
+          <input
+            id="labor_rate"
+            name="labor_rate"
+            type="number"
+            step="0.01"
+            min="0"
+          />
+        </div>
 
-    <div class="field">
-        <label for="labor_hours">Warranty Labor Hours</label>
-        <input
+        <div class="field">
+          <label for="labor_hours">Warranty Labor Hours</label>
+          <input
             id="labor_hours"
             name="labor_hours"
             type="number"
             step="0.1"
-            min="0"/>
-    </div>
+            min="0"
+          />
+        </div>
 
-    <div class="field">
-        <label for="attachments">File Upload</label>
-        <input
+        <div class="field field-wide">
+          <label for="attachments">File Upload</label>
+          <input
             id="attachments"
             name="attachments"
             type="file"
             multiple
-            accept="
-                image/*,
-                application/pdf,
-                application/msword,
-                application/vnd.openxmlformats-officedocument.wordprocessingml.document,
-                application/vnd.ms-excel,
-                application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
-                .pdf,.doc,.docx,.xls,.xlsx"/>
-    </div>
-  </div>
-</fieldset>
+            accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.pdf,.doc,.docx,.xls,.xlsx"
+          />
+        </div>
+      </div>
+    </fieldset>
 
     <!-- Live status region -->
     <div id="form-status" role="status" aria-live="polite"></div>
@@ -373,7 +575,7 @@
       <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
     </div>
   </form>
-
+  </div> <!-- Wrapper end -->
   <script>
     (function () {
       const form = document.getElementById('warranty-intake-form');
